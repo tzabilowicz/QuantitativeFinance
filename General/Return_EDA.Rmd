@@ -1,0 +1,63 @@
+---
+title: "Exploratory Data Analysis - Monthly S&P 500 Returns"
+output: rmarkdown::github_document
+---
+
+This R notebook explores EDA techniques on a sample of S&P 500 daily returns from 1/1/2000 to 12/31/2025. The general purpose of this notebook is to get familiar with the syntax of R and showcase EDA relating to financial time-series data. Given a daily price series $P_t$, the return series $R_t$ is$$
+R_t = \frac{P_{t}}{P_{t-1}}
+$$
+
+```{r}
+# Load libraries
+library(quantmod)
+library(moments)
+
+# Download data
+ohlcv = getSymbols("SPY", src="yahoo", from="2000-01-01", to="2025-12-31", auto.assign=FALSE)
+
+# Compute returns
+r_t = diff(ohlcv[, "SPY.Close"])
+r_t = na.omit(r_t)
+```
+
+```{r}
+# Create a daily candlestick chart
+chartSeries(ohlcv)
+```
+
+```{r}
+# Frequency table of positive and negative returns
+freqs = ifelse(r_t > 0, 1, -1)
+counts = table(freqs)
+probs = prop.table(counts)
+
+contingency_table = cbind(
+  Count=counts,
+  Probability=probs
+)
+
+print(contingency_table)
+```
+
+```{r}
+hist(
+  r_t,
+  main="Daily Returns",
+  xlim=c(min(r_t), max(r_t)),
+  breaks=100
+)
+
+r_mean = mean(r_t)
+r_sd   = sd(r_t)
+r_skew = skewness(r_t)
+r_kurt = kurtosis(r_t)
+
+moments = c(
+  mean = r_mean,
+  sd   = r_sd,
+  skew = r_skew,
+  kurt = r_kurt
+)
+
+print(moments)
+```
