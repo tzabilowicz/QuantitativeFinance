@@ -1,20 +1,27 @@
 ---
 title: "Exploratory Data Analysis(EDA) - S&P 500 Returns"
-output:
-  html_document: default
-  pdf_document: default
+output: pdf_document
 ---
 
 This R notebook conducts an observational study on a sample of S&P 500 returns from 1/1/2000 to 12/31/2025. The general purpose of this notebook is to gain familiarity with the syntax of R and showcase EDA relating to financial time-series data. I also provide commentary on the observations made throughout the notebook. The HTML was rendered from the corresponding R notebook script.
 
 Given a daily price series $P_t$, the return series $R_t$ is$$
-R_t = \frac{P_{t}}{P_{t-1}}
+R_t = \frac{P_{t}-P_{t-1}}{P_{t-1}}
 $$
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  dev = "cairo_pdf",
+  fig.align = "center"
+)
+
+```
 
 ```{r}
 # Load libraries
 library(quantmod)
 library(moments)
+library(Cairo)
 
 # Download data
 ohlcv = getSymbols("SPY", src="yahoo", from="2000-01-01", to="2025-12-31", auto.assign=FALSE)
@@ -33,7 +40,7 @@ This section explores various types of plots for return and price.
 
 ```{r}
 # Create a daily candlestick chart
-chartSeries(ohlcv)
+quantmod::chart_Series(ohlcv, name = "SPY Daily Candlestick Chart")
 ```
 
 ```{r}
@@ -97,13 +104,13 @@ The summary statistics give us numerical insights into the sample daily return d
 
 The mean daily return was \~0.03% and the median daily return was \~0.06%. This suggests that, on average, the sample had a positive daily return.
 
-The maximum one day return in the sample was \~14.5% and the minimum one day return in the sample was \~-10.9%. There are large daily returns in the sample. The next section explores the frequency of large returns.
+The maximum one day return in the sample was \~14.5% and the minimum one day return in the sample was negative \~10.9%. There are large daily returns in the sample. The next section explores the frequency of large returns.
 
 The sample return distribution has a slight positive skew. The high kurtosis validates our observations in the plotting section; the return distribution has fat tails.
 
-Based on the historical sample, the estimated probability of a daily return below −1.91% is 5%.
+Based on the historical sample, the estimated probability of a daily return below negative 1.91% is 5%.
 
-Based on the historical sample, the average return of the smallest 5% of returns is -2.93%.
+Based on the historical sample, the average return of the smallest 5% of returns is negative 2.93%.
 
 ```{r}
 # Frequency table of positive and negative returns
