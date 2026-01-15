@@ -1,9 +1,13 @@
 ---
-title: "Exploratory Data Analysis - Monthly S&P 500 Returns"
-output: rmarkdown::github_document
+title: "Exploratory Data Analysis(EDA) - S&P 500 Returns"
+output:
+  html_document: default
+  pdf_document: default
 ---
 
-This R notebook explores EDA techniques on a sample of S&P 500 daily returns from 1/1/2000 to 12/31/2025. The general purpose of this notebook is to get familiar with the syntax of R and showcase EDA relating to financial time-series data. Given a daily price series $P_t$, the return series $R_t$ is$$
+This R notebook conducts an observational study on a sample of S&P 500 returns from 1/1/2000 to 12/31/2025. The general purpose of this notebook is to gain familiarity with the syntax of R and showcase EDA relating to financial time-series data. I also provide commentary on the observations made throughout the notebook. The HTML was rendered from the corresponding R notebook script.
+
+Given a daily price series $P_t$, the return series $R_t$ is$$
 R_t = \frac{P_{t}}{P_{t-1}}
 $$
 
@@ -16,27 +20,20 @@ library(moments)
 ohlcv = getSymbols("SPY", src="yahoo", from="2000-01-01", to="2025-12-31", auto.assign=FALSE)
 
 # Compute returns
-r_t = diff(ohlcv[, "SPY.Close"])
-r_t = na.omit(r_t)
+r_t  = dailyReturn(Cl(ohlcv), type="arithmetic")
+mr_t = monthlyReturn(Cl(ohlcv), type="arithmetic") 
+
+r_t  = na.omit(r_t)
+mr_t = na.omit(mr_t)
 ```
+
+### Plots
+
+This section explores various types of plots for return and price.
 
 ```{r}
 # Create a daily candlestick chart
 chartSeries(ohlcv)
-```
-
-```{r}
-# Frequency table of positive and negative returns
-freqs = ifelse(r_t > 0, 1, -1)
-counts = table(freqs)
-probs = prop.table(counts)
-
-contingency_table = cbind(
-  Count=counts,
-  Probability=probs
-)
-
-print(contingency_table)
 ```
 
 ```{r}
@@ -46,18 +43,115 @@ hist(
   xlim=c(min(r_t), max(r_t)),
   breaks=100
 )
+```
 
-r_mean = mean(r_t)
-r_sd   = sd(r_t)
-r_skew = skewness(r_t)
-r_kurt = kurtosis(r_t)
+Visually inspecting the daily return distribution, it appears to follow a normal distribution, with fatter tails. Below is the Q-Q plot to further inspect tail behavior.
 
-moments = c(
-  mean = r_mean,
-  sd   = r_sd,
-  skew = r_skew,
-  kurt = r_kurt
+```{r}
+# Normal Q-Q plot
+qqnorm(r_t, main="Normal Q-Q Plot of Returns")
+qqline(r_t, col="steelblue", lwd=2)
+```
+
+```{r}
+# Box plot of daily returns
+boxplot(
+  r_t,
+  main="Box Plot of Returns",
+  xlab="Returns",
+  horizontal=TRUE
+)
+```
+
+From the box-plot, we can see there are many return outliers, further validating the fat tail behavior of the daily return distribution.
+
+### Numerical Summaries
+
+This section computes numerical statistics for return data.
+
+```{r}
+# Compute the summary statistics
+var_95 = quantile(r_t, 0.05)
+
+statistics = c(
+  mean = mean(r_t),
+  meadian = median(r_t),
+  min = min(r_t),
+  max = max(r_t),
+  iqr = IQR(r_t),
+  sd   = sd(r_t),
+  skew = skewness(r_t),
+  kurt = kurtosis(r_t),
+  VaR_95 = var_95,
+  ES_95 = mean(r_t[r_t <= var_95])
+)
+statistics_df = data.frame(
+  Statistic=names(statistics),
+  Value=round(as.numeric(statistics), 6)
 )
 
-print(moments)
+print(statistics_df, row.names=FALSE)
 ```
+
+The summary statistics give us numerical insights into the sample daily return distribution of the S&P 500.
+
+The mean daily return was \~0.03% and the median daily return was \~0.06%. This suggests that, on average, the sample had a positive daily return.
+
+The maximum one day return in the sample was \~14.5% and the minimum one day return in the sample was \~-10.9%. There are large daily returns in the sample. The next section explores the frequency of large returns.
+
+The sample return distribution has a slight positive skew. The high kurtosis validates our observations in the plotting section; the return distribution has fat tails.
+
+Based on the historical sample, the estimated probability of a daily return below −1.91% is 5%.
+
+Based on the historical sample, the average return of the smallest 5% of returns is -2.93%.
+
+```{r}
+# Frequency table of positive and negative returns
+BOUND = 0.025
+
+frequency_table = rbind(
+  data.frame(
+    Type="Pos. R_t",
+    Count=sum(r_t > 0),
+    Probability=mean(r_t > 0)
+  ),
+  data.frame(
+    Type="Neg. R_t",
+    Count=sum(r_t < 0),
+    Probability=mean(r_t < 0)
+  ),
+  data.frame(
+    Type="Large Pos. (> BOUND)",
+    Count=sum(r_t > BOUND),
+    Probability=mean(r_t > BOUND)
+  ),
+  data.frame(
+    Type="Large Neg. (< -BOUND)",
+    Count=sum(r_t < -BOUND),
+    Probability=mean(r_t < -BOUND)
+  )
+)
+
+print(frequency_table)
+```
+
+We can see that \~54% of the daily returns were positive and \~46% of the daily returns were negative in the sample. We can also observe that \~2% of the daily returns were greater than the bound and \~2.5% of the daily returns were lower than the bound.
+
+```{r}
+# Mean day of the week return
+dow = weekdays(index(r_t))
+
+aggregate(r_t, by=list(dow), mean)
+```
+
+```{r}
+month = months(index(mr_t))
+
+aggregate(mr_t, by=list(month), mean)
+```
+
+The section above aggregates the mean returns by the day of the week and month.
+
+All days of the week had a positive mean return except Friday. The day with the largest mean return was Tuesday (\~0.006%).
+
+February, June, and September had negative mean returns, while the rest of the months had positive mean returns. November had the largest mean return (2.42%).
